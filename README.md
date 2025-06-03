@@ -1,4 +1,4 @@
-# Health Reminder
+# Health Reminder - 健康提醒插件
 
 一个极简的 VS Code 插件，提供久坐和喝水的强制提醒功能。
 
