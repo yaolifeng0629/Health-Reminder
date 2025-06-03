@@ -1,6 +1,16 @@
-# 健康提醒 - Health Reminder
+# Health Reminder
 
 一个极简的 VS Code 插件，提供久坐和喝水的强制提醒功能。
+
+[中文](/README.md) | [English](/README.en.md)
+
+## 关于作者
+
+-   作者：[Immerse](https://yaolifeng.com)
+-   博客：[https://yaolifeng.com](https://yaolifeng.com)
+-   公众号：[沉浸式趣谈](https://yaolifeng.com/sponsor/wx_public_account.webp)
+-   Github: [https://github.com/yaolifeng0629](https://github.com/yaolifeng0629)
+-   个人介绍：一名独立开发者、内容创作者。分享关于`编程`、`独立开发`、`AI干货`、`开源`、`个人思考`等有趣的内容。
 
 ## 🌟 核心功能
 
@@ -47,17 +57,18 @@
 
 ## 📦 安装方法
 
-### 方法一: 从源码安装
+### 方法一：从 VS Code 扩展市场安装
+
+1. 打开 VS Code 扩展市场
+2. 搜索 "健康提醒"
+3. 点击 "安装"
+
+### 方法二：从源码安装
 
 1. 克隆或下载项目文件
 2. 在项目目录运行 `npm install`
 3. 运行 `npm run compile` 编译 TypeScript
 4. 在 VS Code 中按 `F5` 运行调试，或打包成 `.vsix` 文件安装
-
-### 方法二: 手动安装
-
-1. 将编译后的文件放入 VS Code 扩展目录
-2. 重启 VS Code
 
 ## 🔧 开发
 
@@ -98,10 +109,17 @@ health-reminder/
 -   建议喝水提醒间隔设置为 30-45 分钟
 -   工作时保持插件开启，养成良好的健康习惯
 
+## 💰 打赏
+
+如果觉得这个插件对你有帮助，欢迎打赏我，你的支持是我最大的动力。
+
+<img src="https://yaolifeng.com/sponsor/weixin.png" alt="微信打赏" width="200" height="200">
+<img src="https://yaolifeng.com/sponsor/ali.png" alt="支付宝打赏" width="200" height="200">
+
 ## 🤝 支持
 
 如有问题或建议，欢迎提出 Issue 或贡献代码。
 
 ---
 
-保持健康，高效工作！💪
+先保持健康，再高效工作！💪
