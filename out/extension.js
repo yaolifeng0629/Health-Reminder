@@ -39,29 +39,48 @@ const vscode = __importStar(require("vscode"));
 const configService_1 = require("./services/configService");
 const timerService_1 = require("./services/timerService");
 const statusService_1 = require("./services/statusService");
-// Import the reminderUI to ensure the reminder functions are registered
+// 导入reminderUI以确保提醒函数被正确注册
+// 这是解决循环依赖的关键步骤
 require("./ui/reminderUI");
+/**
+ * 插件激活函数
+ * 当插件被VS Code激活时调用
+ *
+ * 实现了以下功能：
+ * 1. 注册命令
+ * 2. 启动健康提醒计时器
+ * 3. 监听配置变化
+ *
+ * @param context 插件上下文
+ */
 function activate(context) {
     console.log('健康提醒插件已激活');
-    // 注册命令
+    // 注册重置计时器命令
     const resetCommand = vscode.commands.registerCommand('healthReminder.resetTimers', () => {
         (0, timerService_1.resetAllTimers)();
         const texts = (0, configService_1.getTexts)();
         vscode.window.showInformationMessage(texts.resetMessage);
     });
+    // 注册显示状态命令
     const statusCommand = vscode.commands.registerCommand('healthReminder.showStatus', () => {
         (0, statusService_1.showCurrentStatus)();
     });
+    // 将命令添加到上下文订阅中，确保插件卸载时命令被正确释放
     context.subscriptions.push(resetCommand, statusCommand);
-    // 启动计时器
+    // 启动健康提醒计时器
     (0, timerService_1.startTimers)();
-    // 监听配置变化
+    // 监听配置变化，当健康提醒配置改变时重置计时器
     vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('healthReminder')) {
             (0, timerService_1.resetAllTimers)();
         }
     });
 }
+/**
+ * 插件停用函数
+ * 当插件被VS Code停用时调用
+ * 清除所有计时器，释放资源
+ */
 function deactivate() {
     (0, timerService_1.clearAllTimers)();
 }

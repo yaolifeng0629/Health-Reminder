@@ -38,19 +38,41 @@ exports.showDrinkReminder = showDrinkReminder;
 const vscode = __importStar(require("vscode"));
 const configService_1 = require("../services/configService");
 const timerService_1 = require("../services/timerService");
-// Register the reminder functions to avoid circular dependencies
+/**
+ * 初始化提醒功能
+ * 通过设置函数引用，解决循环依赖问题
+ * 这种方式允许timerService调用UI功能，而UI模块也可以调用timerService的功能
+ */
 (0, timerService_1.setSitReminderFunction)(() => showSitReminder());
 (0, timerService_1.setDrinkReminderFunction)(() => showDrinkReminder());
+/**
+ * 显示久坐提醒
+ * 创建一个模态窗口，提醒用户起身活动
+ * 确认后会重置久坐计时器
+ */
 async function showSitReminder() {
     const texts = (0, configService_1.getTexts)();
     await showReminderModal(texts.sitReminderTitle, texts.sitReminderMessage, texts.sitReminderButton, timerService_1.resetSitTimer);
 }
+/**
+ * 显示喝水提醒
+ * 创建一个模态窗口，提醒用户喝水
+ * 确认后会重置喝水计时器
+ */
 async function showDrinkReminder() {
     const texts = (0, configService_1.getTexts)();
     await showReminderModal(texts.drinkReminderTitle, texts.drinkReminderMessage, texts.drinkReminderButton, timerService_1.resetDrinkTimer);
 }
 /**
  * 显示一个模态提醒窗口，阻止用户进行其他操作直到确认
+ *
+ * 实现了以下功能：
+ * 1. 创建一个全屏WebView面板
+ * 2. 阻止键盘输入和其他操作
+ * 3. 确保面板始终保持在前台
+ * 4. 用户确认后重置相应的计时器
+ * 5. 释放所有资源
+ *
  * @param title 提醒标题
  * @param message 提醒消息
  * @param buttonText 确认按钮文本
@@ -58,14 +80,17 @@ async function showDrinkReminder() {
  */
 async function showReminderModal(title, message, buttonText, onConfirm) {
     // 创建webview面板作为全屏模态窗口
-    const panel = vscode.window.createWebviewPanel('healthReminder', '健康提醒', vscode.ViewColumn.One, {
+    const panel = vscode.window.createWebviewPanel('healthReminder', '健康提醒', {
+        viewColumn: vscode.ViewColumn.One,
+        preserveFocus: false
+    }, {
         enableScripts: true,
         retainContextWhenHidden: true,
     });
     // 生成HTML内容
     const html = generateReminderHTML(title, message, buttonText);
     panel.webview.html = html;
-    // 确保面板获得焦点
+    // 确保面板获得焦点并处于活动状态
     panel.reveal(vscode.ViewColumn.One, true);
     // 创建一个模态状态，阻止其他操作
     const disposables = [];
@@ -75,6 +100,12 @@ async function showReminderModal(title, message, buttonText, onConfirm) {
     // 阻止键盘输入
     const keyboardDisposable = blockKeyboardInput(panel);
     disposables.push(keyboardDisposable);
+    // 阻止所有命令执行
+    const blockCommandsDisposable = blockAllCommands(panel);
+    disposables.push(blockCommandsDisposable);
+    // 阻止编辑器操作
+    const blockEditorDisposable = blockEditorOperations(panel);
+    disposables.push(blockEditorDisposable);
     // 处理webview消息
     const messageHandler = panel.webview.onDidReceiveMessage(message => {
         if (message.command === 'confirm') {
@@ -100,12 +131,13 @@ async function showReminderModal(title, message, buttonText, onConfirm) {
         else {
             clearInterval(interval);
         }
-    }, 500);
+    }, 300);
     // 当确认后清除间隔
     disposables.push({ dispose: () => clearInterval(interval) });
 }
 /**
  * 创建阻止操作的状态栏提示
+ * 在状态栏显示警告消息，提醒用户当前处于提醒状态
  */
 function createBlockingStatusBarItem() {
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -116,6 +148,8 @@ function createBlockingStatusBarItem() {
 }
 /**
  * 阻止键盘输入，将焦点重定向到提醒面板
+ * 通过覆盖type命令，阻止用户在编辑器中输入文本
+ * 当用户尝试输入时，会自动将焦点重定向到提醒面板
  */
 function blockKeyboardInput(panel) {
     return vscode.commands.registerCommand('type', () => {
@@ -124,7 +158,95 @@ function blockKeyboardInput(panel) {
     }, null);
 }
 /**
+ * 阻止所有常用命令执行
+ * 通过覆盖常用命令，阻止用户执行各种操作
+ */
+function blockAllCommands(panel) {
+    // 创建一个复合的disposable对象
+    const disposables = [];
+    // 常见的命令列表
+    const commonCommands = [
+        'workbench.action.files.save',
+        'workbench.action.files.saveAs',
+        'workbench.action.files.saveAll',
+        'workbench.action.openSettings',
+        'workbench.action.closeActiveEditor',
+        'workbench.action.closeAllEditors',
+        'workbench.action.navigateBack',
+        'workbench.action.navigateForward',
+        'editor.action.formatDocument',
+        'editor.action.goToDeclaration',
+        'editor.action.goToDefinition',
+        'editor.action.referenceSearch.trigger',
+        'editor.action.rename',
+        'editor.action.sourceAction',
+        'editor.action.codeAction',
+        'editor.action.quickFix',
+        'editor.action.organizeImports',
+        'editor.action.clipboardCopyAction',
+        'editor.action.clipboardCutAction',
+        'editor.action.clipboardPasteAction',
+        'search.action.openNewEditor',
+        'search.action.openNewEditorToSide',
+        'workbench.action.quickOpen',
+        'workbench.action.showCommands',
+        'workbench.action.terminal.toggleTerminal',
+        'workbench.action.terminal.new',
+        'workbench.action.tasks.runTask',
+        'workbench.action.debug.start',
+        'workbench.action.debug.run',
+        'workbench.action.debug.stop',
+        'workbench.action.debug.restart',
+        'workbench.action.debug.continue',
+        'workbench.view.explorer',
+        'workbench.view.search',
+        'workbench.view.scm',
+        'workbench.view.debug',
+        'workbench.view.extensions'
+    ];
+    // 为每个命令注册一个拦截器
+    for (const cmd of commonCommands) {
+        const disposable = vscode.commands.registerCommand(cmd, () => {
+            panel.reveal(vscode.ViewColumn.One, true);
+            return null;
+        }, null);
+        disposables.push(disposable);
+    }
+    // 返回一个复合的disposable对象
+    return { dispose: () => disposables.forEach(d => d.dispose()) };
+}
+/**
+ * 阻止编辑器操作
+ * 通过监听编辑器变化事件，阻止用户进行编辑操作
+ */
+function blockEditorOperations(panel) {
+    const disposables = [];
+    // 监听编辑器选择变化事件
+    const selectionChangeDisposable = vscode.window.onDidChangeTextEditorSelection(() => {
+        panel.reveal(vscode.ViewColumn.One, true);
+    });
+    disposables.push(selectionChangeDisposable);
+    // 监听编辑器可见性变化事件
+    const visibilityChangeDisposable = vscode.window.onDidChangeVisibleTextEditors(() => {
+        panel.reveal(vscode.ViewColumn.One, true);
+    });
+    disposables.push(visibilityChangeDisposable);
+    // 监听活动编辑器变化事件
+    const activeEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(() => {
+        panel.reveal(vscode.ViewColumn.One, true);
+    });
+    disposables.push(activeEditorChangeDisposable);
+    // 返回一个复合的disposable对象
+    return { dispose: () => disposables.forEach(d => d.dispose()) };
+}
+/**
  * 生成提醒HTML内容
+ * 创建一个美观的提醒界面，包含标题、消息和确认按钮
+ * 实现了以下功能：
+ * 1. 响应式设计，适应不同屏幕尺寸
+ * 2. 动画效果，提高用户体验
+ * 3. 倒计时功能，防止用户立即关闭提醒
+ * 4. 阻止页面关闭和键盘事件
  */
 function generateReminderHTML(title, message, buttonText) {
     const texts = (0, configService_1.getTexts)();
