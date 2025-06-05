@@ -39,6 +39,8 @@ const vscode = __importStar(require("vscode"));
 const configService_1 = require("./services/configService");
 const timerService_1 = require("./services/timerService");
 const statusService_1 = require("./services/statusService");
+// Import the reminderUI to ensure the reminder functions are registered
+require("./ui/reminderUI");
 function activate(context) {
     console.log('健康提醒插件已激活');
     // 注册命令

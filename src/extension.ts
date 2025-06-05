@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { getTexts } from './services/configService';
 import { startTimers, resetAllTimers, clearAllTimers } from './services/timerService';
 import { showCurrentStatus } from './services/statusService';
+// Import the reminderUI to ensure the reminder functions are registered
+import './ui/reminderUI';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('健康提醒插件已激活');

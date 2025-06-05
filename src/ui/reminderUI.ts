@@ -1,67 +1,114 @@
 import * as vscode from 'vscode';
 import { getConfig, getTexts } from '../services/configService';
-import { resetSitTimer, resetDrinkTimer } from '../services/timerService';
+import { resetSitTimer, resetDrinkTimer, setSitReminderFunction, setDrinkReminderFunction } from '../services/timerService';
+
+// Register the reminder functions to avoid circular dependencies
+setSitReminderFunction(() => showSitReminder());
+setDrinkReminderFunction(() => showDrinkReminder());
 
 export async function showSitReminder(): Promise<void> {
     const texts = getTexts();
-    await showReminderModal(texts.sitReminderTitle, texts.sitReminderMessage, texts.sitReminderButton, () => {
-        resetSitTimer();
-    });
+    await showReminderModal(texts.sitReminderTitle, texts.sitReminderMessage, texts.sitReminderButton, resetSitTimer);
 }
 
 export async function showDrinkReminder(): Promise<void> {
     const texts = getTexts();
-    await showReminderModal(texts.drinkReminderTitle, texts.drinkReminderMessage, texts.drinkReminderButton, () => {
-        resetDrinkTimer();
-    });
+    await showReminderModal(texts.drinkReminderTitle, texts.drinkReminderMessage, texts.drinkReminderButton, resetDrinkTimer);
 }
 
+/**
+ * 显示一个模态提醒窗口，阻止用户进行其他操作直到确认
+ * @param title 提醒标题
+ * @param message 提醒消息
+ * @param buttonText 确认按钮文本
+ * @param onConfirm 确认后的回调函数
+ */
 async function showReminderModal(title: string, message: string, buttonText: string, onConfirm: () => void): Promise<void> {
     // 创建webview面板作为全屏模态窗口
-    const panel = vscode.window.createWebviewPanel('healthReminder', '健康提醒', vscode.ViewColumn.One, {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-    });
+    const panel = vscode.window.createWebviewPanel(
+        'healthReminder',
+        '健康提醒',
+        vscode.ViewColumn.One,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true,
+        }
+    );
 
     // 生成HTML内容
     const html = generateReminderHTML(title, message, buttonText);
     panel.webview.html = html;
 
     // 确保面板获得焦点
-    panel.reveal(vscode.ViewColumn.One, false);
+    panel.reveal(vscode.ViewColumn.One, true);
+
+    // 创建一个模态状态，阻止其他操作
+    const disposables: vscode.Disposable[] = [];
+
+    // 添加状态栏提示
+    const statusBarItem = createBlockingStatusBarItem();
+    disposables.push(statusBarItem);
+
+    // 阻止键盘输入
+    const keyboardDisposable = blockKeyboardInput(panel);
+    disposables.push(keyboardDisposable);
 
     // 处理webview消息
     const messageHandler = panel.webview.onDidReceiveMessage(message => {
-        switch (message.command) {
-            case 'confirm':
-                panel.dispose();
-                onConfirm();
-                const texts = getTexts();
-                vscode.window.showInformationMessage(texts.confirmMessage);
-                return;
+        if (message.command === 'confirm') {
+            // 释放所有阻止操作的资源
+            disposables.forEach(d => d.dispose());
+            panel.dispose();
+            onConfirm();
+            const texts = getTexts();
+            vscode.window.showInformationMessage(texts.confirmMessage);
         }
     });
+    disposables.push(messageHandler);
 
     // 防止面板被意外关闭
     panel.onDidDispose(() => {
-        messageHandler.dispose();
+        // 如果面板被关闭，也释放所有资源
+        disposables.forEach(d => d.dispose());
     });
 
-    // 阻止其他操作的焦点变化（尽可能）
+    // 持续确保面板保持在前台
     const interval = setInterval(() => {
         if (panel.visible) {
-            panel.reveal(vscode.ViewColumn.One, false);
+            panel.reveal(vscode.ViewColumn.One, true);
         } else {
             clearInterval(interval);
         }
-    }, 1000);
+    }, 500);
 
-    // 5秒后清除间隔
-    setTimeout(() => {
-        clearInterval(interval);
-    }, 5000);
+    // 当确认后清除间隔
+    disposables.push({ dispose: () => clearInterval(interval) });
 }
 
+/**
+ * 创建阻止操作的状态栏提示
+ */
+function createBlockingStatusBarItem(): vscode.StatusBarItem {
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.text = "$(alert) 健康提醒中，请先处理提醒";
+    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    statusBarItem.show();
+    return statusBarItem;
+}
+
+/**
+ * 阻止键盘输入，将焦点重定向到提醒面板
+ */
+function blockKeyboardInput(panel: vscode.WebviewPanel): vscode.Disposable {
+    return vscode.commands.registerCommand('type', () => {
+        panel.reveal(vscode.ViewColumn.One, true);
+        return null;
+    }, null);
+}
+
+/**
+ * 生成提醒HTML内容
+ */
 function generateReminderHTML(title: string, message: string, buttonText: string): string {
     const texts = getTexts();
     const isEnglish = getConfig().language === 'en';
@@ -198,6 +245,7 @@ function generateReminderHTML(title: string, message: string, buttonText: string
 
         let countdown = 3;
 
+        // 倒计时逻辑
         const timer = setInterval(() => {
             countdown--;
             secondsEl.textContent = countdown;
@@ -209,6 +257,7 @@ function generateReminderHTML(title: string, message: string, buttonText: string
             }
         }, 1000);
 
+        // 确认按钮点击事件
         confirmBtn.addEventListener('click', () => {
             if (confirmBtn.classList.contains('enabled')) {
                 vscode.postMessage({
@@ -226,6 +275,22 @@ function generateReminderHTML(title: string, message: string, buttonText: string
         // 获得焦点
         window.focus();
         document.body.focus();
+
+        // 阻止键盘事件
+        document.addEventListener('keydown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }, true);
+
+        // 阻止鼠标点击事件传播到编辑器
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.reminder-container')) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        }, true);
     </script>
 </body>
 </html>`;
