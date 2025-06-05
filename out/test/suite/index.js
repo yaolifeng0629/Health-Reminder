@@ -33,34 +33,40 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.activate = activate;
-exports.deactivate = deactivate;
-const vscode = __importStar(require("vscode"));
-const configService_1 = require("./services/configService");
-const timerService_1 = require("./services/timerService");
-const statusService_1 = require("./services/statusService");
-function activate(context) {
-    console.log('健康提醒插件已激活');
-    // 注册命令
-    const resetCommand = vscode.commands.registerCommand('healthReminder.resetTimers', () => {
-        (0, timerService_1.resetAllTimers)();
-        const texts = (0, configService_1.getTexts)();
-        vscode.window.showInformationMessage(texts.resetMessage);
+exports.run = run;
+const path = __importStar(require("path"));
+const Mocha = __importStar(require("mocha"));
+const glob_1 = require("glob");
+function run() {
+    // 创建 mocha 测试
+    const mocha = new Mocha({
+        ui: 'tdd',
+        color: true
     });
-    const statusCommand = vscode.commands.registerCommand('healthReminder.showStatus', () => {
-        (0, statusService_1.showCurrentStatus)();
-    });
-    context.subscriptions.push(resetCommand, statusCommand);
-    // 启动计时器
-    (0, timerService_1.startTimers)();
-    // 监听配置变化
-    vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('healthReminder')) {
-            (0, timerService_1.resetAllTimers)();
-        }
+    const testsRoot = path.resolve(__dirname, '..');
+    return new Promise((c, e) => {
+        (0, glob_1.glob)('**/**.test.js', { cwd: testsRoot })
+            .then(files => {
+            // 添加文件到测试套件
+            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
+            try {
+                // 运行测试
+                mocha.run(failures => {
+                    if (failures > 0) {
+                        e(new Error(`${failures} tests failed.`));
+                    }
+                    else {
+                        c();
+                    }
+                });
+            }
+            catch (err) {
+                e(err);
+            }
+        })
+            .catch(err => {
+            e(err);
+        });
     });
 }
-function deactivate() {
-    (0, timerService_1.clearAllTimers)();
-}
-//# sourceMappingURL=extension.js.map
+//# sourceMappingURL=index.js.map

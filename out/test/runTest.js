@@ -33,34 +33,24 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.activate = activate;
-exports.deactivate = deactivate;
-const vscode = __importStar(require("vscode"));
-const configService_1 = require("./services/configService");
-const timerService_1 = require("./services/timerService");
-const statusService_1 = require("./services/statusService");
-function activate(context) {
-    console.log('健康提醒插件已激活');
-    // 注册命令
-    const resetCommand = vscode.commands.registerCommand('healthReminder.resetTimers', () => {
-        (0, timerService_1.resetAllTimers)();
-        const texts = (0, configService_1.getTexts)();
-        vscode.window.showInformationMessage(texts.resetMessage);
-    });
-    const statusCommand = vscode.commands.registerCommand('healthReminder.showStatus', () => {
-        (0, statusService_1.showCurrentStatus)();
-    });
-    context.subscriptions.push(resetCommand, statusCommand);
-    // 启动计时器
-    (0, timerService_1.startTimers)();
-    // 监听配置变化
-    vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('healthReminder')) {
-            (0, timerService_1.resetAllTimers)();
-        }
-    });
+const path = __importStar(require("path"));
+const test_electron_1 = require("@vscode/test-electron");
+async function main() {
+    try {
+        // 测试插件的根目录
+        const extensionDevelopmentPath = path.resolve(__dirname, '../../');
+        // 测试脚本的路径
+        const extensionTestsPath = path.resolve(__dirname, './suite/index');
+        // 下载 VS Code, 解压, 启动并运行测试
+        await (0, test_electron_1.runTests)({
+            extensionDevelopmentPath,
+            extensionTestsPath
+        });
+    }
+    catch (err) {
+        console.error('Failed to run tests', err);
+        process.exit(1);
+    }
 }
-function deactivate() {
-    (0, timerService_1.clearAllTimers)();
-}
-//# sourceMappingURL=extension.js.map
+main();
+//# sourceMappingURL=runTest.js.map

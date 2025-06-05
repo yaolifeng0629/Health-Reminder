@@ -33,34 +33,31 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.activate = activate;
-exports.deactivate = deactivate;
+exports.showCurrentStatus = showCurrentStatus;
 const vscode = __importStar(require("vscode"));
-const configService_1 = require("./services/configService");
-const timerService_1 = require("./services/timerService");
-const statusService_1 = require("./services/statusService");
-function activate(context) {
-    console.log('健康提醒插件已激活');
-    // 注册命令
-    const resetCommand = vscode.commands.registerCommand('healthReminder.resetTimers', () => {
-        (0, timerService_1.resetAllTimers)();
-        const texts = (0, configService_1.getTexts)();
-        vscode.window.showInformationMessage(texts.resetMessage);
-    });
-    const statusCommand = vscode.commands.registerCommand('healthReminder.showStatus', () => {
-        (0, statusService_1.showCurrentStatus)();
-    });
-    context.subscriptions.push(resetCommand, statusCommand);
-    // 启动计时器
-    (0, timerService_1.startTimers)();
-    // 监听配置变化
-    vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('healthReminder')) {
-            (0, timerService_1.resetAllTimers)();
-        }
-    });
+const configService_1 = require("./configService");
+const timerService_1 = require("./timerService");
+function showCurrentStatus() {
+    const config = (0, configService_1.getConfig)();
+    const texts = (0, configService_1.getTexts)();
+    const now = Date.now();
+    let status = `${texts.statusTitle}\n\n`;
+    if (config.enableSit) {
+        const sitElapsed = Math.floor((now - timerService_1.timerState.sitStartTime) / 1000 / 60);
+        const sitRemaining = config.sitInterval - sitElapsed;
+        status += `${texts.sitStatus}: ${sitRemaining > 0 ? `${sitRemaining}${texts.minutesLater}` : texts.comingSoon}\n`;
+    }
+    else {
+        status += `${texts.sitStatus}: ${texts.disabled}\n`;
+    }
+    if (config.enableDrink) {
+        const drinkElapsed = Math.floor((now - timerService_1.timerState.drinkStartTime) / 1000 / 60);
+        const drinkRemaining = config.drinkInterval - drinkElapsed;
+        status += `${texts.drinkStatus}: ${drinkRemaining > 0 ? `${drinkRemaining}${texts.minutesLater}` : texts.comingSoon}`;
+    }
+    else {
+        status += `${texts.drinkStatus}: ${texts.disabled}`;
+    }
+    vscode.window.showInformationMessage(status);
 }
-function deactivate() {
-    (0, timerService_1.clearAllTimers)();
-}
-//# sourceMappingURL=extension.js.map
+//# sourceMappingURL=statusService.js.map
