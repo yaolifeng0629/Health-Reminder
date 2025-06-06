@@ -2,8 +2,6 @@
 
 一个极简的 VS Code 插件，提供久坐和喝水的强制提醒功能。
 
-[中文](/README.md) | [English](/README.en.md)
-
 ## 关于作者
 
 -   作者：[Immerse](https://yaolifeng.com)

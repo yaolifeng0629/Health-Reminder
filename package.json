@@ -3,9 +3,15 @@
     "displayName": "Health Reminder",
     "description": "健康提醒—久坐和喝水强制提醒插件",
     "version": "0.0.1",
+    "publisher": "Immerse",
     "engines": {
         "vscode": "^1.100.0"
     },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yaolifeng0629/Health-Reminder"
+    },
+    "icon": "images/logo.png",
     "categories": [
         "Other"
     ],
